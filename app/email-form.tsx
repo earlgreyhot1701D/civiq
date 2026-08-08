@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 
-export default function EmailForm({ query }: { query: string }) {
+export default function EmailForm({ query, hasHits }: { query: string; hasHits: boolean }) {
   const [email, setEmail] = useState('');
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
@@ -33,7 +33,11 @@ export default function EmailForm({ query }: { query: string }) {
 
   return (
     <form className="email" onSubmit={submit}>
-      <label htmlFor="em">Email me about this</label>
+      <label htmlFor="em">
+          {hasHits
+            ? 'Email me about this'
+            : 'Follow this — we will email you if it appears on any agenda'}
+        </label>
       <div className="row">
         <input
           id="em"
@@ -44,7 +48,7 @@ export default function EmailForm({ query }: { query: string }) {
           placeholder="you@example.com"
         />
         <button type="submit" disabled={busy || !email}>
-          {busy ? 'Sending…' : 'Send it to me now'}
+          {busy ? 'Sending…' : hasHits ? 'Send it to me now' : 'Follow this'}
         </button>
       </div>
       {msg && <p className="note">{msg}</p>}

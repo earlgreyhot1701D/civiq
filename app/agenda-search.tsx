@@ -15,7 +15,7 @@ export type Hit = {
   body: string;
 };
 
-export default function AgendaSearch() {
+export default function AgendaSearch({ bodies, checkedAt }: { bodies: number; checkedAt: string | null }) {
   const { messages, sendMessage } = useChat({
     transport: new DefaultChatTransport({ api: '/api/chat' }),
   });
@@ -89,10 +89,19 @@ export default function AgendaSearch() {
 
       {err && <p className="err">Search could not run: {err}</p>}
 
+      {/* Names where we looked and when. Never "missing", never a near-miss shown
+          under a label — if it were good enough to display it was good enough to rank. */}
       {asked && !hits.length && !busy && !err && (
-        <p className="none">
-          Nothing matching “{asked}” was located in what has been read so far.
-        </p>
+        <div className="none">
+          <p>
+            <strong>No near matches for “{asked}.”</strong>
+          </p>
+          <p>
+            Nothing matching was located at cityofventura.ca.gov/AgendaCenter
+            {checkedAt ? ` as of ${new Date(checkedAt).toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })}` : ''}
+            , across {bodies || 21} boards and commissions.
+          </p>
+        </div>
       )}
 
       {hits.map((h) => (
@@ -110,7 +119,10 @@ export default function AgendaSearch() {
         </article>
       ))}
 
-      {hits.length > 0 && <EmailForm query={asked} />}
+      {/* Follow works on an empty result set too — watching 21 bodies for something
+          that has not happened yet is the thing a resident cannot do by hand, and the
+          topic never had to exist in our corpus for it to work. */}
+      {asked && !busy && !err && <EmailForm query={asked} hasHits={hits.length > 0} />}
     </>
   );
 }

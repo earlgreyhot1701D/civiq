@@ -1,11 +1,19 @@
 // Server shell: the footer timestamp is read from the runs table, never hardcoded.
+// The page leads with the feed — real content on load, no typing required. Search
+// demotes to a filter above it.
 import AgendaSearch from './agenda-search';
+import MeetingCard from './meeting-card';
+import { getFeed } from '@/lib/feed';
 import { corpusStats, lastIngestedAt } from '@/lib/stats';
 
 export const dynamic = 'force-dynamic';
 
 export default async function Page() {
-  const [last, stats] = await Promise.all([lastIngestedAt(), corpusStats()]);
+  const [last, stats, feed] = await Promise.all([
+    lastIngestedAt(),
+    corpusStats(),
+    getFeed(),
+  ]);
 
   return (
     <main>
@@ -21,7 +29,26 @@ export default async function Page() {
         answer carries a receipt.
       </p>
 
-      <AgendaSearch />
+      <AgendaSearch bodies={stats.bodies} checkedAt={last} />
+
+      {feed.upcoming.length > 0 && (
+        <section>
+          <h2>Coming up</h2>
+          {feed.upcoming.map((m) => (
+            <MeetingCard key={m.id} m={m} showWhen />
+          ))}
+        </section>
+      )}
+
+      {feed.recent.length > 0 && (
+        <section>
+          {/* Labelled for what it is. Past meetings are never shown as upcoming. */}
+          <h2>Most recent published agendas</h2>
+          {feed.recent.map((m) => (
+            <MeetingCard key={m.id} m={m} showWhen={false} />
+          ))}
+        </section>
+      )}
 
       <footer>
         <p>
