@@ -25,6 +25,20 @@ export const DENSE_WEIGHT = 1.0;
 export const LEXICAL_WEIGHT = 1.0;
 const MAX_QUERY = 200;
 
+// Identifier-shaped queries are exact lookups. Someone asking for "Ordinance
+// 2026-004" is not helped by a similar-but-different ordinance ranked first —
+// that is a wrong answer wearing a receipt. Lexical is weighted up for these, and
+// the OR fallback is withheld: if the exact identifier is not in the corpus, the
+// honest empty state beats a confident near-miss. Plain-language queries keep the
+// even 1.0/1.0 split, where broadening is what makes them work at all.
+export const IDENTIFIER =
+  /\b[A-Z]{2,}-?\d{2,}|\bordinance\b|\bAPN\b|\bcase\s*no\b|\bresolution\s+\d/i;
+
+export const weightsFor = (q: string) =>
+  IDENTIFIER.test(q)
+    ? { dense: 0.5, lexical: 2.0, exact: true }
+    : { dense: DENSE_WEIGHT, lexical: LEXICAL_WEIGHT, exact: false };
+
 // HANDOFF §5 numbers these $1,$2,$4,$5; Postgres rejects a parameter that is never
 // referenced, so they are $1..$4 here. Same query, same weights.
 const TAIL = `
@@ -60,6 +74,7 @@ export async function hybridSearch(rawQuery: string, limit = 10): Promise<Hit[]>
   if (!dbConfigured) throw new Error(NO_DB);
 
   const vec = await embedQuery(q);
+  const w = weightsFor(q);
 
   const build = (lexQ: (p: number) => string) => {
     if (vec) {
@@ -72,7 +87,7 @@ export async function hybridSearch(rawQuery: string, limit = 10): Promise<Hit[]>
          ),` +
         LEX_CTE(2, lexQ) +
         TAIL.replace('$DW', '$3').replace('$LW', '$4').replace('$LIMIT', '$5');
-      return { text, params: [toVector(vec), q, DENSE_WEIGHT, LEXICAL_WEIGHT, limit] };
+      return { text, params: [toVector(vec), q, w.dense, w.lexical, limit] };
     }
     // No embedding key, or the embed call failed. Clean lexical-only search —
     // the dense half is simply empty. This is the shippable default.
@@ -80,7 +95,7 @@ export async function hybridSearch(rawQuery: string, limit = 10): Promise<Hit[]>
       `with dense as (select i.id, 1::bigint as rank from items i where false),` +
       LEX_CTE(1, lexQ) +
       TAIL.replace('$DW', '$2').replace('$LW', '$3').replace('$LIMIT', '$4');
-    return { text, params: [q, DENSE_WEIGHT, LEXICAL_WEIGHT, limit] };
+    return { text, params: [q, w.dense, w.lexical, limit] };
   };
 
   const run = async (lexQ: (p: number) => string) => {
@@ -92,7 +107,9 @@ export async function hybridSearch(rawQuery: string, limit = 10): Promise<Hit[]>
     const strict = await run(AND_Q);
     // Every term present is the better match when it exists; broaden only if the
     // strict pass found nothing, so precise queries keep their precise ranking.
-    return strict.length ? strict : await run(OR_Q);
+    // Identifier lookups never broaden — see IDENTIFIER above.
+    if (strict.length || w.exact) return strict;
+    return await run(OR_Q);
   } catch (err) {
     throw new Error(`search failed: ${(err as Error).message}`);
   }
