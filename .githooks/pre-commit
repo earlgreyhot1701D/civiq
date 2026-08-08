@@ -1,0 +1,21 @@
+#!/bin/sh
+# Blocks secrets from ever entering a commit. Enable with:
+#   git config core.hooksPath .githooks
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+
+for f in $staged; do
+  case "$f" in
+    .env|.env.*|*/.env|*/.env.*)
+      case "$f" in
+        *.example) ;;
+        *) echo "pre-commit: refusing to commit env file: $f"; exit 1 ;;
+      esac ;;
+  esac
+done
+
+if git diff --cached -- . ':(exclude)package-lock.json' | grep -qEi \
+  "(sk-[A-Za-z0-9_-]{16,}|re_[A-Za-z0-9_-]{16,}|AIza[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY|postgres(ql)?://[^ '\"]*:[^ '\"@]+@)"; then
+  echo "pre-commit: credential-shaped string found in staged content. Commit blocked."
+  exit 1
+fi
+exit 0
