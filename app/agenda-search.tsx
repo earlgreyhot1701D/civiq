@@ -16,18 +16,27 @@ export type Hit = {
 };
 
 export default function AgendaSearch() {
-  const { messages, sendMessage, status } = useChat({
+  const { messages, sendMessage } = useChat({
     transport: new DefaultChatTransport({ api: '/api/chat' }),
   });
   const [input, setInput] = useState('');
   const [hits, setHits] = useState<Hit[]>([]);
   const [asked, setAsked] = useState('');
   const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
 
   async function ask(q: string) {
     setAsked(q);
     setErr('');
-    sendMessage({ text: q });
+    setBusy(true);
+    // The receipts are the product; the chat answer is commentary on top. Send the
+    // model request without awaiting it and never let it fail the search — a slow
+    // or erroring model must not take the results down with it.
+    try {
+      sendMessage({ text: q });
+    } catch {
+      /* chat is best-effort */
+    }
     try {
       const res = await fetch('/api/search', {
         method: 'POST',
@@ -38,7 +47,10 @@ export default function AgendaSearch() {
       setHits(data.hits ?? []);
       if (data.error) setErr(data.error);
     } catch (e) {
+      setHits([]);
       setErr((e as Error).message);
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -57,12 +69,12 @@ export default function AgendaSearch() {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          disabled={status !== 'ready'}
+          disabled={busy}
           placeholder="can they put a bar next to my house"
           aria-label="Ask about Ventura agendas"
         />
-        <button type="submit" disabled={status !== 'ready' || !input.trim()}>
-          {status === 'ready' ? 'Ask' : 'Reading…'}
+        <button type="submit" disabled={busy || !input.trim()}>
+          {busy ? 'Reading…' : 'Ask'}
         </button>
       </form>
 
@@ -77,7 +89,7 @@ export default function AgendaSearch() {
 
       {err && <p className="err">Search could not run: {err}</p>}
 
-      {asked && !hits.length && status === 'ready' && !err && (
+      {asked && !hits.length && !busy && !err && (
         <p className="none">
           Nothing matching “{asked}” was located in what has been read so far.
         </p>

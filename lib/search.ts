@@ -39,11 +39,19 @@ left join lex   lx on lx.id = i.id
 where dn.id is not null or lx.id is not null
 order by score desc limit $LIMIT`;
 
-const LEX_CTE = (p: number) => `
+// plainto_tsquery ANDs every term, so "can they put a bar next to my house" becomes
+// bar & next & house and matches nothing — the headline demo query returned 0 rows.
+// Swapping & for | inside the tsquery Postgres already built keeps its stemming and
+// stopword handling (and stays injection-safe, since the text never leaves tsquery
+// form). ts_rank_cd still ranks items matching more terms higher.
+const AND_Q = (p: number) => `plainto_tsquery('english', $${p})`;
+const OR_Q = (p: number) =>
+  `replace(plainto_tsquery('english', $${p})::text, '&', '|')::tsquery`;
+
+const LEX_CTE = (p: number, q: (p: number) => string) => `
 lex as (
-  select id, row_number() over (
-           order by ts_rank_cd(tsv, plainto_tsquery('english', $${p})) desc) as rank
-  from items where tsv @@ plainto_tsquery('english', $${p}) limit 50
+  select id, row_number() over (order by ts_rank_cd(tsv, ${q(p)}) desc) as rank
+  from items where tsv @@ ${q(p)} limit 50
 )`;
 
 export async function hybridSearch(rawQuery: string, limit = 10): Promise<Hit[]> {
@@ -53,32 +61,38 @@ export async function hybridSearch(rawQuery: string, limit = 10): Promise<Hit[]>
 
   const vec = await embedQuery(q);
 
-  let text: string;
-  let params: unknown[];
-
-  if (vec) {
-    // $1 embedding · $2 query text · $3 dense weight · $4 lexical weight
-    text =
-      `with dense as (
-         select id, row_number() over (order by embedding <=> $1::vector) as rank
-         from items where embedding is not null
-         order by embedding <=> $1::vector limit 50
-       ),` +
-      LEX_CTE(2) +
-      TAIL.replace('$DW', '$3').replace('$LW', '$4').replace('$LIMIT', '$5');
-    params = [toVector(vec), q, DENSE_WEIGHT, LEXICAL_WEIGHT, limit];
-  } else {
+  const build = (lexQ: (p: number) => string) => {
+    if (vec) {
+      // $1 embedding · $2 query text · $3 dense weight · $4 lexical weight
+      const text =
+        `with dense as (
+           select id, row_number() over (order by embedding <=> $1::vector) as rank
+           from items where embedding is not null
+           order by embedding <=> $1::vector limit 50
+         ),` +
+        LEX_CTE(2, lexQ) +
+        TAIL.replace('$DW', '$3').replace('$LW', '$4').replace('$LIMIT', '$5');
+      return { text, params: [toVector(vec), q, DENSE_WEIGHT, LEXICAL_WEIGHT, limit] };
+    }
     // No embedding key, or the embed call failed. Clean lexical-only search —
     // the dense half is simply empty. This is the shippable default.
-    text =
+    const text =
       `with dense as (select i.id, 1::bigint as rank from items i where false),` +
-      LEX_CTE(1) +
+      LEX_CTE(1, lexQ) +
       TAIL.replace('$DW', '$2').replace('$LW', '$3').replace('$LIMIT', '$4');
-    params = [q, DENSE_WEIGHT, LEXICAL_WEIGHT, limit];
-  }
+    return { text, params: [q, DENSE_WEIGHT, LEXICAL_WEIGHT, limit] };
+  };
+
+  const run = async (lexQ: (p: number) => string) => {
+    const { text, params } = build(lexQ);
+    return (await sql.unsafe(text, params as never[])) as unknown as Hit[];
+  };
 
   try {
-    return (await sql.unsafe(text, params as never[])) as unknown as Hit[];
+    const strict = await run(AND_Q);
+    // Every term present is the better match when it exists; broaden only if the
+    // strict pass found nothing, so precise queries keep their precise ranking.
+    return strict.length ? strict : await run(OR_Q);
   } catch (err) {
     throw new Error(`search failed: ${(err as Error).message}`);
   }
