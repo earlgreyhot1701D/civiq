@@ -4,7 +4,10 @@ Ask about City of Ventura board and commission agendas in plain language. Every
 answer carries a receipt: body, meeting date, item number, page range, and a link
 to the source PDF.
 
-**Live:** https://civiq-or3s7ppnu-earlgreyhot1701ds-projects.vercel.app
+**Live:** https://civiq-earlgreyhot1701ds-projects.vercel.app
+
+This is the stable production alias — it survives redeploys, unlike the per-build
+`civiq-<hash>-...` URLs. Use it for anything you hand to someone else.
 
 Covers all 21 Ventura boards and commissions — 141 published agendas, 707 items.
 
