@@ -26,9 +26,16 @@ export const LEXICAL_WEIGHT = 1.0;
 const MAX_QUERY = 200;
 
 // Cosine similarity below which, with zero strict lexical hits, we say we found
-// nothing rather than rank the least-irrelevant rows. Calibrated, not guessed —
-// see the measurement in the comment inside hybridSearch.
-export const DENSE_FLOOR = 0.7;
+// nothing rather than rank the least-irrelevant rows. Calibrated against the real
+// corpus over 8 known-good and 7 fabricated queries:
+//
+//   min(good) 0.6958  "can a restaurant take over the parking spots on my block"
+//   max(bad)  0.6591  "data centers being built near me"
+//
+// Midpoint of a 0.037-wide gap. An earlier 0.70 came from a 3-query sample that
+// happened to exclude the weakest genuine queries, and it silently ate two of them
+// — the sample size WAS the bug, so widen the probe set before moving this.
+export const DENSE_FLOOR = 0.677;
 
 // Identifier-shaped queries are exact lookups. Someone asking for "Ordinance
 // 2026-004" is not helped by a similar-but-different ordinance ranked first —
