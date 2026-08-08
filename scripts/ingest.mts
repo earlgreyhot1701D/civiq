@@ -3,7 +3,6 @@
 //   npx tsx scripts/ingest.mts --body 25  # one body
 //   npx tsx scripts/ingest.mts --body 25 --limit 1
 //   npx tsx scripts/ingest.mts --dry-run  # parse only: no DB, no model, no spend
-import 'dotenv/config';
 import { dbConfigured, NO_DB, sql, toVector } from '../lib/db';
 import { fetchIndex, parseIndex, fetchPdf, extractPages, type DocRef } from '../lib/pdf';
 import { parseItems, rewriteItems } from '../lib/extract';
@@ -57,12 +56,13 @@ async function ingestDoc(doc: DocRef): Promise<{ changed: boolean; items: number
   }
 
   // ONE Haiku call for the whole document.
-  const plain = parsed.length ? await rewriteItems(parsed) : new Map<string, string>();
+  const plain = parsed.length ? await rewriteItems(parsed) : new Map<number, string>();
 
-  // Only items the model actually rewrote get written; every row keeps a full receipt.
+  // Only items the model actually rewrote get written; every row keeps a full
+  // receipt. Matched by position — item numbers repeat across agenda sections.
   const rows = parsed
-    .filter((i) => plain.has(i.itemNumber))
-    .map((i) => ({ ...i, plainText: plain.get(i.itemNumber)! }));
+    .map((i, idx) => ({ ...i, plainText: plain.get(idx) }))
+    .filter((r): r is typeof r & { plainText: string } => Boolean(r.plainText));
 
   const vectors = embeddingsEnabled() ? await embedDocuments(rows.map((r) => r.plainText)) : [];
 

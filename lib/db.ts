@@ -3,6 +3,14 @@
 // Deliberately does NOT throw at import time: the page must still render (and the
 // build must still pass) when DATABASE_URL is absent. Callers check dbConfigured.
 import postgres from 'postgres';
+import { config } from 'dotenv';
+
+// Next.js loads .env.local itself; standalone scripts do not. Loading here rather
+// than in the script guarantees ordering — ES imports are hoisted, so anything
+// done in the script body runs after this module has already read process.env.
+// dotenv does not override variables that are already set, so this is a no-op
+// under Next.js and on Vercel.
+config({ path: ['.env.local', '.env'], quiet: true });
 
 const url = process.env.DATABASE_URL;
 
