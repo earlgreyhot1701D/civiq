@@ -21,7 +21,7 @@ const esc = (s: unknown) =>
 
 export async function sendDigest(to: string, query: string, hits: Hit[]) {
   return client().emails.send({
-    from: 'Agenda Watch <onboarding@resend.dev>',
+    from: 'Civiq <onboarding@resend.dev>',
     to, // residents only — never a city address
     subject: `${hits.length} Ventura items about "${query}"`,
     html:
@@ -35,6 +35,6 @@ export async function sendDigest(to: string, query: string, hits: Hit[]) {
         )
         .join('<hr/>') +
       `<p style="color:#666;font-size:12px">Every item above links to the source PDF.
-       Agenda Watch never sends anything to the city on your behalf.</p>`,
+       Civiq never sends anything to the city on your behalf.</p>`,
   });
 }

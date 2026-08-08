@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Agenda Watch — Ventura",
+  title: "Civiq — Ventura",
   description:
     "Ask about City of Ventura board and commission agendas in plain language. Every answer carries a receipt.",
 };

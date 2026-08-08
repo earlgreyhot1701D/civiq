@@ -49,7 +49,7 @@ export default function EmailForm({ query }: { query: string }) {
       </div>
       {msg && <p className="note">{msg}</p>}
       <p className="note">
-        Goes only to you. Agenda Watch never sends anything to the city on your behalf.
+        Goes only to you. Civiq never sends anything to the city on your behalf.
       </p>
     </form>
   );

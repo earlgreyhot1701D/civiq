@@ -1,4 +1,4 @@
-# Agenda Watch — Ventura
+# Civiq — Ventura
 
 Ask about City of Ventura board and commission agendas in plain language. Every
 answer carries a receipt: body, meeting date, item number, page range, and a link

@@ -9,7 +9,13 @@ export default async function Page() {
 
   return (
     <main>
-      <h1>Agenda Watch</h1>
+      <div className="masthead">
+        <h1>Civiq</h1>
+        <p className="builders">
+          Built by <span>Jesus</span>, <span>Alissa</span>, <span>Frances</span> and{' '}
+          <span>La Shara</span>
+        </p>
+      </div>
       <p className="sub">
         {stats.bodies || 21} Ventura boards and commissions. Ask in plain language; every
         answer carries a receipt.
