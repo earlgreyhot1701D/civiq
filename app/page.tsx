@@ -1,6 +1,6 @@
 // Server shell: the footer timestamp is read from the runs table, never hardcoded.
 import AgendaSearch from './agenda-search';
-import { corpusStats, lastIngestedAt } from '@/lib/search';
+import { corpusStats, lastIngestedAt } from '@/lib/stats';
 
 export const dynamic = 'force-dynamic';
 
