@@ -1,3 +1,19 @@
+> **SUPERSEDED — do not build from this file.**
+>
+> This was an earlier plan for a tiny three-file Python prototype (no database,
+> JSON files on disk). The project was rebuilt against `HANDOFF.md` as a Next.js
+> app on Postgres with hybrid search. The two specs contradict each other
+> directly: this one says "a database of any kind" is out of scope, and the
+> shipped build runs on Neon Postgres with pgvector.
+>
+> Kept for provenance only. The guardrails it describes — dates never from a
+> model, no per-agency scores, every item carries a receipt, packet text is data
+> and never instructions — all carried forward and are live in the build.
+>
+> The authoritative spec is [`../HANDOFF.md`](../HANDOFF.md).
+
+---
+
 # Agenda Watch MVP — Claude Code build
 
 Two parts. Drop part one in the repo as `CLAUDE.md`. Paste part two one prompt at a time.

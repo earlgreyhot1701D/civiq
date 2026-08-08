@@ -4,6 +4,10 @@ Ask about City of Ventura board and commission agendas in plain language. Every
 answer carries a receipt: body, meeting date, item number, page range, and a link
 to the source PDF.
 
+**Live:** https://civiq-or3s7ppnu-earlgreyhot1701ds-projects.vercel.app
+
+Covers all 21 Ventura boards and commissions — 141 published agendas, 707 items.
+
 ## Guardrails
 
 1. **No model-generated dates, item numbers, or page ranges.** Meeting dates are
