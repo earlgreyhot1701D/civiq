@@ -31,8 +31,12 @@ const MAX_QUERY = 200;
 // the OR fallback is withheld: if the exact identifier is not in the corpus, the
 // honest empty state beats a confident near-miss. Plain-language queries keep the
 // even 1.0/1.0 split, where broadening is what makes them work at all.
+// Every branch requires a number adjacent to the word. A bare "ordinance" is
+// conversational ("is there a new ordinance about short term rentals") and must
+// broaden like any other plain-language query — routing it to exact mode returned
+// nothing, which reads as a broken search rather than an honest empty state.
 export const IDENTIFIER =
-  /\b[A-Z]{2,}-?\d{2,}|\bordinance\b|\bAPN\b|\bcase\s*no\b|\bresolution\s+\d/i;
+  /\b[A-Z]{2,}-?\d{2,}|\bordinance\s+(no\.?\s*)?\d|\bAPN\b|\bcase\s*no\.?\s*\d|\bresolution\s+(no\.?\s*)?\d/i;
 
 export const weightsFor = (q: string) =>
   IDENTIFIER.test(q)
