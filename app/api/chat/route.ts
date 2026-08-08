@@ -7,7 +7,16 @@ export const maxDuration = 30;
 export async function POST(req: Request) {
   const { messages }: { messages: UIMessage[] } = await req.json();
   const q = messages.at(-1)?.parts.find((p) => p.type === 'text')?.text ?? '';
-  const hits = await hybridSearch(q);
+
+  // A search failure must not 500 the route. The model is told what went wrong so
+  // it can say where we looked, rather than answering from its own knowledge.
+  let hits: Awaited<ReturnType<typeof hybridSearch>> = [];
+  let searchError = '';
+  try {
+    hits = await hybridSearch(q);
+  } catch (err) {
+    searchError = (err as Error).message;
+  }
 
   const result = streamText({
     model: anthropic('claude-sonnet-5'),
@@ -15,6 +24,11 @@ export async function POST(req: Request) {
       `Answer using ONLY the agenda items below. Every claim cites its item.\n` +
       `Never state a date or deadline that is not verbatim in the context.\n` +
       `If nothing matches, say so and name what was searched.\n\n` +
+      (searchError
+        ? `The agenda index could not be queried (${searchError}). Say exactly that, ` +
+          `name https://www.cityofventura.ca.gov/AgendaCenter as where the agendas live, ` +
+          `and do not answer from your own knowledge.\n\n`
+        : '') +
       hits
         .map(
           (h) =>
