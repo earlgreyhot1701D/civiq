@@ -32,7 +32,6 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
-!.env.local.example
 
 # scratch PDFs pulled during ingest
 /tmp-pdfs
@@ -48,3 +47,6 @@ next-env.d.ts
 .claude/settings.local.json
 
 .vercel
+
+# must stay after every .env* rule above — later rules win
+!.env.local.example
