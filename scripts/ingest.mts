@@ -35,9 +35,10 @@ async function ingestDoc(doc: DocRef): Promise<{ changed: boolean; items: number
       return { changed: true, items: 0 };
     }
     await sql`
-      insert into documents (id, body_id, meeting_date, url, sha256, is_amended, page_count, text_unavailable)
-      values (${doc.id}, ${doc.bodyId}, ${doc.meetingDate}, ${doc.url}, ${sha256}, ${doc.isAmended}, ${pageCount}, true)
+      insert into documents (id, body_id, meeting_date, url, sha256, title, is_amended, is_cancelled, page_count, text_unavailable)
+      values (${doc.id}, ${doc.bodyId}, ${doc.meetingDate}, ${doc.url}, ${sha256}, ${doc.title}, ${doc.isAmended}, ${doc.isCancelled}, ${pageCount}, true)
       on conflict (id) do update set sha256 = excluded.sha256, text_unavailable = true,
+        title = excluded.title, is_cancelled = excluded.is_cancelled,
         page_count = excluded.page_count, fetched_at = now()`;
     console.log(`  ${doc.id} text_unavailable (${charsPerPage} chars/page) — stored, skipped`);
     return { changed: true, items: 0 };
@@ -67,10 +68,11 @@ async function ingestDoc(doc: DocRef): Promise<{ changed: boolean; items: number
 
   await sql.begin(async (tx) => {
     await tx`
-      insert into documents (id, body_id, meeting_date, url, sha256, is_amended, page_count, text_unavailable)
-      values (${doc.id}, ${doc.bodyId}, ${doc.meetingDate}, ${doc.url}, ${sha256}, ${doc.isAmended}, ${pageCount}, false)
+      insert into documents (id, body_id, meeting_date, url, sha256, title, is_amended, is_cancelled, page_count, text_unavailable)
+      values (${doc.id}, ${doc.bodyId}, ${doc.meetingDate}, ${doc.url}, ${sha256}, ${doc.title}, ${doc.isAmended}, ${doc.isCancelled}, ${pageCount}, false)
       on conflict (id) do update set sha256 = excluded.sha256, page_count = excluded.page_count,
-        is_amended = excluded.is_amended, text_unavailable = false, fetched_at = now()`;
+        title = excluded.title, is_amended = excluded.is_amended,
+        is_cancelled = excluded.is_cancelled, text_unavailable = false, fetched_at = now()`;
     await tx`delete from items where document_id = ${doc.id}`;
     for (let n = 0; n < rows.length; n++) {
       const r = rows[n];

@@ -14,7 +14,21 @@ export type DocRef = {
   url: string;
   title: string;
   isAmended: boolean;
+  isCancelled: boolean;
 };
+
+/** CivicPlus emits "Director&#39;s Hearing"; titles are shown to residents. */
+export function decodeEntities(s: string): string {
+  return s
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;|&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}
 
 /** "_07142026-3669" -> "2026-07-14". Returns null if the id is not the expected shape. */
 export function meetingDateFromId(id: string): string | null {
@@ -58,7 +72,9 @@ export function parseIndex(html: string): DocRef[] {
       const meetingDate = meetingDateFromId(id);
       if (!meetingDate) continue; // no date we can prove -> we do not write the row
       seen.add(id);
-      const title = m[2].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      const title = decodeEntities(m[2].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim())
+        .replace(/\*+/g, '')
+        .trim();
       out.push({
         id,
         bodyId,
@@ -68,6 +84,9 @@ export function parseIndex(html: string): DocRef[] {
         url: `${ORIGIN}/AgendaCenter/ViewFile/Agenda/${id}`,
         title,
         isAmended: /amend/i.test(title),
+        // The city says so in the title; we copy that, never infer it. A packet
+        // with no items is not evidence of cancellation.
+        isCancelled: /cancel/i.test(title),
       });
     }
   }

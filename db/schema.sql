@@ -17,7 +17,10 @@ create table documents (
   meeting_date     date not null,      -- parsed from URL. NEVER from a model.
   url              text not null,
   sha256           text not null,
+  title            text,               -- verbatim link text from /AgendaCenter
   is_amended       boolean default false,
+  is_cancelled     boolean default false,   -- the city said "CANCELLED" in the title;
+                                            -- copied, never inferred from item count
   page_count       int,
   text_unavailable boolean default false,  -- scanned PDF; be honest, don't guess
   fetched_at       timestamptz default now()

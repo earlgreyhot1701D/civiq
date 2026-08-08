@@ -128,15 +128,23 @@ export async function lastIngestedAt(): Promise<string | null> {
   }
 }
 
-export async function corpusStats(): Promise<{ bodies: number; documents: number; items: number }> {
-  if (!dbConfigured) return { bodies: 0, documents: 0, items: 0 };
+export type Stats = {
+  bodies: number; documents: number; items: number; scans: number; cancelled: number;
+};
+const EMPTY: Stats = { bodies: 0, documents: 0, items: 0, scans: 0, cancelled: 0 };
+
+/** Coverage counts, including what could NOT be read. Absence is stated, not hidden. */
+export async function corpusStats(): Promise<Stats> {
+  if (!dbConfigured) return EMPTY;
   try {
-    const [row] = await sql<{ bodies: number; documents: number; items: number }[]>`
+    const [row] = await sql<Stats[]>`
       select (select count(*)::int from bodies)    as bodies,
              (select count(*)::int from documents) as documents,
-             (select count(*)::int from items)     as items`;
-    return row ?? { bodies: 0, documents: 0, items: 0 };
+             (select count(*)::int from items)     as items,
+             (select count(*)::int from documents where text_unavailable) as scans,
+             (select count(*)::int from documents where is_cancelled)     as cancelled`;
+    return row ?? EMPTY;
   } catch {
-    return { bodies: 0, documents: 0, items: 0 };
+    return EMPTY;
   }
 }

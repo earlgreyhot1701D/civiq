@@ -31,6 +31,22 @@ export default async function Page() {
             <>No ingest run has completed yet, so nothing has been read into this database.</>
           )}
         </p>
+
+        {/* What could not be read is stated plainly. Never "missing", never "late". */}
+        {stats.scans > 0 && (
+          <p className="caveat">
+            Text could not be read from {stats.scans} of these {stats.documents} agendas.
+            They appear to be scans. The originals are linked and nothing in them has been
+            guessed at.
+          </p>
+        )}
+        {stats.cancelled > 0 && (
+          <p className="caveat">
+            {stats.cancelled} posted a notice of cancellation. They are kept as published
+            rather than dropped, because a cancelled meeting is itself a thing a resident
+            may be looking for.
+          </p>
+        )}
         <ul>
           <li>Meeting dates, item numbers and page ranges are copied from the source — never written by a model.</li>
           <li>No scores, grades or rankings about any agency.</li>
