@@ -23,8 +23,19 @@ create table documents (
                                             -- copied, never inferred from item count
   page_count       int,
   text_unavailable boolean default false,  -- scanned PDF; be honest, don't guess
-  fetched_at       timestamptz default now()
+  fetched_at       timestamptz default now(),
+  -- What KIND of document this is, relative to the others for the same meeting.
+  -- Read from the city-given title verbatim; see roleFromTitle() in lib/pdf.ts.
+  -- 17 (body, date) groups hold 2 documents and they are NOT one relationship:
+  -- 10 Spanish editions, 6 supplemental packets, 1 revision.
+  role             text not null default 'primary'
+                   check (role in ('primary','spanish','supplemental','amended')),
+  -- The primary agenda a non-primary document belongs to. Null is a real state.
+  relates_to       text references documents(id)
 );
+
+create index documents_role_idx       on documents (role);
+create index documents_relates_to_idx on documents (relates_to);
 
 create table items (
   id          bigserial primary key,

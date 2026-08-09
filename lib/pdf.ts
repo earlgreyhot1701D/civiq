@@ -15,7 +15,40 @@ export type DocRef = {
   title: string;
   isAmended: boolean;
   isCancelled: boolean;
+  role: DocRole;
 };
+
+/**
+ * What KIND of document this is, relative to the other documents for the same
+ * meeting. Read from the city-given title verbatim, like isAmended/isCancelled.
+ *
+ *   primary      the agenda itself
+ *   spanish      the separately-posted Spanish edition of the same agenda
+ *   supplemental a packet of addenda published alongside the agenda
+ *   amended      a revised re-post of an earlier agenda
+ *
+ * This exists because 17 (body, date) groups hold more than one document and they
+ * are NOT all the same relationship: 10 are Spanish editions, 6 are supplemental
+ * packets, 1 is a revision. Treating them alike would either drop real content or
+ * present one decision as two. Never inferred from a same-day collision — a body
+ * can legitimately hold two meetings in a day.
+ */
+export type DocRole = 'primary' | 'spanish' | 'supplemental' | 'amended';
+
+export function roleFromTitle(title: string): DocRole {
+  // Most specific first. The city writes the Spanish edition's title entirely in
+  // Spanish ("24 DE MARZO DE 2026 AGENDA DEL CONCEJO MUNICIPAL").
+  if (/CONCEJO MUNICIPAL/i.test(title)) return 'spanish';
+  // "Supplemental Packet POSTED" is the agenda annotated to say a packet exists —
+  // "June 22, 2026 Water Commission Regular Meeting Agenda - Supplemental Packet
+  // Posted" is the agenda itself and carries the meeting's 5 items. A bare
+  // "Supplemental Packet (06.11.2026)" is the packet. Without the lookahead this
+  // demoted three real Water Commission agendas to addenda and orphaned them,
+  // since they have no other sibling to attach to.
+  if (/supplemental\s+packet(?!\s+posted)/i.test(title)) return 'supplemental';
+  if (/\bamend/i.test(title)) return 'amended';
+  return 'primary';
+}
 
 /** CivicPlus emits "Director&#39;s Hearing"; titles are shown to residents. */
 export function decodeEntities(s: string): string {
@@ -87,6 +120,7 @@ export function parseIndex(html: string): DocRef[] {
         // The city says so in the title; we copy that, never infer it. A packet
         // with no items is not evidence of cancellation.
         isCancelled: /cancel/i.test(title),
+        role: roleFromTitle(title),
       });
     }
   }

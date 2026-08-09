@@ -5,8 +5,11 @@
 // Dense indexes plain_text (how residents talk); lexical indexes raw_text +
 // plain_text (preserves "PROJ-12345", "Ordinance 2026-004" verbatim). That
 // asymmetry is the point.
+import { bridgeTerms } from './bridge';
 import { dbConfigured, NO_DB, sql, toVector } from './db';
 import { embedQuery } from './embed';
+import { lexicalCount, orTsquery } from './lexical';
+import { rrfQuery } from './rrf';
 
 export type Hit = {
   id: number;
@@ -21,7 +24,6 @@ export type Hit = {
   score: number;
 };
 
-const K = 60;
 export const DENSE_WEIGHT = 1.0;
 export const LEXICAL_WEIGHT = 1.0;
 const MAX_QUERY = 200;
@@ -56,35 +58,6 @@ export const weightsFor = (q: string) =>
     ? { dense: 0.5, lexical: 2.0, exact: true }
     : { dense: DENSE_WEIGHT, lexical: LEXICAL_WEIGHT, exact: false };
 
-// HANDOFF §5 numbers these $1,$2,$4,$5; Postgres rejects a parameter that is never
-// referenced, so they are $1..$4 here. Same query, same weights.
-const TAIL = `
-select i.id, i.item_number, i.plain_text, i.raw_text, i.page_start, i.page_end,
-       d.meeting_date, d.url, b.name as body,
-       coalesce($DW::float/(${K}+dn.rank), 0) + coalesce($LW::float/(${K}+lx.rank), 0) as score
-from items i
-join documents d on d.id = i.document_id
-join bodies    b on b.id = d.body_id
-left join dense dn on dn.id = i.id
-left join lex   lx on lx.id = i.id
-where dn.id is not null or lx.id is not null
-order by score desc limit $LIMIT`;
-
-// plainto_tsquery ANDs every term, so "can they put a bar next to my house" becomes
-// bar & next & house and matches nothing — the headline demo query returned 0 rows.
-// Swapping & for | inside the tsquery Postgres already built keeps its stemming and
-// stopword handling (and stays injection-safe, since the text never leaves tsquery
-// form). ts_rank_cd still ranks items matching more terms higher.
-const AND_Q = (p: number) => `plainto_tsquery('english', $${p})`;
-const OR_Q = (p: number) =>
-  `replace(plainto_tsquery('english', $${p})::text, '&', '|')::tsquery`;
-
-const LEX_CTE = (p: number, q: (p: number) => string) => `
-lex as (
-  select id, row_number() over (order by ts_rank_cd(tsv, ${q(p)}) desc) as rank
-  from items where tsv @@ ${q(p)} limit 50
-)`;
-
 export async function hybridSearch(rawQuery: string, limit = 10): Promise<Hit[]> {
   const q = (rawQuery ?? '').trim().slice(0, MAX_QUERY);
   if (!q) return [];
@@ -92,7 +65,24 @@ export async function hybridSearch(rawQuery: string, limit = 10): Promise<Hit[]>
 
   const vec = await embedQuery(q);
   const w = weightsFor(q);
+  // Empty for almost every query; see lib/bridge.ts for why that matters.
+  const bridged = w.exact ? [] : bridgeTerms(q);
 
+  // ⚠️ KNOWN DEFECT, not yet fixed. This block is gated on `vec`, so when the embed
+  // call fails — free-tier quota, rate limit, outage — the floor is skipped and the
+  // honest empty state becomes unreachable. Broadening then matches on common words
+  // and fabricated queries come back full. Measured with the quota exhausted:
+  // `npm run golden` goes 17/17 -> 10/17, and all seven regressions are fabricated
+  // queries returning six results each, with receipts. "is there a casino coming"
+  // returns six items — the precise behaviour DENSE_FLOOR was added to stop.
+  //
+  // There is no cheap lexical proxy for the floor: the discriminating signal was
+  // cosine, and for these queries the count of matched lexemes is 1 either way.
+  // So the options are a real trade, which is why this is documented rather than
+  // silently patched — skip OR-broadening when the dense half is missing (honest,
+  // but the headline query has zero strict lexical hits and would return empty), or
+  // keep recall and mark the results as reduced-confidence in the UI.
+  //
   // Dense retrieval always returns something — cosine ranks every row, so there is
   // no natural "no match" and the honest empty state could never fire. Measured
   // against the real 707-item corpus: known-good queries top out at 0.7297+, and
@@ -106,43 +96,50 @@ export async function hybridSearch(rawQuery: string, limit = 10): Promise<Hit[]>
               order by embedding <=> ${toVector(vec)}::vector limit 1) as sim,
              (select count(*)::int from items
               where tsv @@ plainto_tsquery('english', ${q})) as lex`;
-    if (row && row.lex === 0 && Number(row.sim) < DENSE_FLOOR) return [];
+    if (row && row.lex === 0 && Number(row.sim) < DENSE_FLOOR) {
+      // A bridged term matching IS evidence, and it is the only evidence available
+      // for a query whose words the agendas never use. "potholes on my street" has
+      // no strict lexical hit and sims at 0.6482 because the word appears zero
+      // times in 141 agendas — but "pavement" and "resurfacing" are right there.
+      //
+      // This weakens the floor ONLY for queries containing a curated, verified
+      // bridge word. bridgeTerms() returns nothing for anything else, so the
+      // fabricated queries the floor exists to catch are adjudicated unchanged.
+      if (!bridged.length || (await lexicalCount(bridged)) === 0) return [];
+    }
   }
 
-  const build = (lexQ: (p: number) => string) => {
-    if (vec) {
-      // $1 embedding · $2 query text · $3 dense weight · $4 lexical weight
-      const text =
-        `with dense as (
-           select id, row_number() over (order by embedding <=> $1::vector) as rank
-           from items where embedding is not null
-           order by embedding <=> $1::vector limit 50
-         ),` +
-        LEX_CTE(2, lexQ) +
-        TAIL.replace('$DW', '$3').replace('$LW', '$4').replace('$LIMIT', '$5');
-      return { text, params: [toVector(vec), q, w.dense, w.lexical, limit] };
-    }
-    // No embedding key, or the embed call failed. Clean lexical-only search —
-    // the dense half is simply empty. This is the shippable default.
-    const text =
-      `with dense as (select i.id, 1::bigint as rank from items i where false),` +
-      LEX_CTE(1, lexQ) +
-      TAIL.replace('$DW', '$2').replace('$LW', '$3').replace('$LIMIT', '$4');
-    return { text, params: [q, w.dense, w.lexical, limit] };
-  };
+  // The bridge tsquery is built by Postgres from bound parameters and handed back
+  // as text, so composing it into the lexical half below stays injection-safe.
+  let bridgeTq: string | null = null;
+  if (bridged.length) {
+    const [r] = await sql<{ tq: string | null }[]>`select (${orTsquery(bridged)})::text as tq`;
+    bridgeTq = r?.tq ?? null;
+  }
 
-  const run = async (lexQ: (p: number) => string) => {
-    const { text, params } = build(lexQ);
+  const run = async (mode: 'and' | 'or', withBridge = false) => {
+    const { text, params } = rrfQuery({
+      vec,
+      q,
+      dense: w.dense,
+      lexical: w.lexical,
+      limit,
+      mode,
+      bridgeTq: withBridge ? bridgeTq : null,
+    });
     return (await sql.unsafe(text, params as never[])) as unknown as Hit[];
   };
 
   try {
-    const strict = await run(AND_Q);
+    const strict = await run('and');
     // Every term present is the better match when it exists; broaden only if the
     // strict pass found nothing, so precise queries keep their precise ranking.
     // Identifier lookups never broaden — see IDENTIFIER above.
     if (strict.length || w.exact) return strict;
-    return await run(OR_Q);
+    // Broadening is where the bridge belongs: it is the city's vocabulary for a word
+    // the resident used and the agendas never do, OR-ed into the lexical half so it
+    // ranks rather than merely unblocking the floor.
+    return await run('or', true);
   } catch (err) {
     throw new Error(`search failed: ${(err as Error).message}`);
   }
