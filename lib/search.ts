@@ -68,6 +68,21 @@ export async function hybridSearch(rawQuery: string, limit = 10): Promise<Hit[]>
   // Empty for almost every query; see lib/bridge.ts for why that matters.
   const bridged = w.exact ? [] : bridgeTerms(q);
 
+  // ⚠️ KNOWN DEFECT, not yet fixed. This block is gated on `vec`, so when the embed
+  // call fails — free-tier quota, rate limit, outage — the floor is skipped and the
+  // honest empty state becomes unreachable. Broadening then matches on common words
+  // and fabricated queries come back full. Measured with the quota exhausted:
+  // `npm run golden` goes 17/17 -> 10/17, and all seven regressions are fabricated
+  // queries returning six results each, with receipts. "is there a casino coming"
+  // returns six items — the precise behaviour DENSE_FLOOR was added to stop.
+  //
+  // There is no cheap lexical proxy for the floor: the discriminating signal was
+  // cosine, and for these queries the count of matched lexemes is 1 either way.
+  // So the options are a real trade, which is why this is documented rather than
+  // silently patched — skip OR-broadening when the dense half is missing (honest,
+  // but the headline query has zero strict lexical hits and would return empty), or
+  // keep recall and mark the results as reduced-confidence in the UI.
+  //
   // Dense retrieval always returns something — cosine ranks every row, so there is
   // no natural "no match" and the honest empty state could never fire. Measured
   // against the real 707-item corpus: known-good queries top out at 0.7297+, and

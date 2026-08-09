@@ -33,8 +33,19 @@ cp .env.local.example .env.local
 ```
 
 `DATABASE_URL` and `ANTHROPIC_API_KEY` are required.
-`GOOGLE_GENERATIVE_AI_API_KEY` is optional — without it, search runs lexical-only
-and degrades cleanly. `RESEND_API_KEY` is only needed for the email digest.
+`RESEND_API_KEY` is only needed for the email digest.
+
+⚠️ `GOOGLE_GENERATIVE_AI_API_KEY` is **not** safely optional, despite what this file
+used to say. Without a working embedding call, search runs lexical-only — and the
+dense floor that makes the honest empty state possible is skipped, because it has no
+cosine similarity to adjudicate with. Measured with the key's quota exhausted:
+`npm run golden` drops from 17/17 to 10/17, and all seven regressions are fabricated
+queries returning six confident results each, every one carrying a full receipt.
+"is there a casino coming" returns six items.
+
+This is the exact failure the floor was added to prevent, reachable through a free-tier
+quota limit rather than through a code path. It is not fixed yet. Treat the key as
+required, and see the note in `lib/search.ts`.
 
 Apply the schema, then the seed rows (seed rows let the UI work before ingest finishes):
 
