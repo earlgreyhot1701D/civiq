@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "ingest": "tsx scripts/ingest.mts"
+    "ingest": "tsx scripts/ingest.mts",
+    "migrate": "tsx scripts/migrate.mts",
+    "golden": "tsx scripts/golden.mts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.36",

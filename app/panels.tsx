@@ -58,13 +58,29 @@ function observations(stats: Stats, checkedAt: string | null): Obs[] {
   });
 
   // Found by reading a proof panel and discovering the city's own words were in
-  // Spanish. Stated plainly, including the part we have not fixed — a panel called
-  // "what we saw" cannot quietly omit the thing it saw about itself.
+  // Spanish. A panel called "what we saw" cannot quietly omit the thing it saw
+  // about itself — including, now, what was done about it.
   if (stats.spanish > 0)
     out.push({
       kind: 'Published in two languages',
       text: `${stats.spanish} of these agendas are the Spanish edition of a City Council meeting that also has an English edition. The city posts each as its own document, with its own id and its own page numbering.`,
-      why: 'Both are kept, because dropping one of a pair means dropping the Spanish one. But they are not yet linked to each other, so the same decision can appear twice in a result list with different page numbers, and the Spanish edition is currently searched using English language rules. Neither is a mistake by the city.',
+      why: 'Both are kept — dropping one of a pair means dropping the Spanish one. The two are now linked, so a search returns the decision once instead of twice, and the Spanish PDF is linked from the English agenda. It is still indexed under English language rules, and its plain-language summary is still written in English. Neither is a mistake by the city.',
+    });
+
+  if (stats.supplemental > 0)
+    out.push({
+      kind: 'Packets posted separately',
+      text: `${stats.supplemental} documents are supplemental packets published alongside an agenda rather than agendas of their own.`,
+      why: 'They used to appear as separate meetings on the same day as the agenda they belong to. They are now linked from it. Telling the two apart is done from the city’s own title: a title ending "Supplemental Packet Posted" is the agenda saying a packet exists, not the packet — reading it the other way round demoted three real Water Commission agendas to addenda.',
+    });
+
+  // Surfaced only when it happens. Silence here means every non-primary document
+  // found its agenda, which is worth being able to tell apart from "not checked".
+  if (stats.orphans > 0)
+    out.push({
+      kind: 'No agenda located',
+      text: `${stats.orphans} documents were published for a meeting whose agenda we have not located.`,
+      why: 'They are kept and shown on their own rather than being attached to a guess. This says what we hold, not that anything is missing from the city’s page.',
     });
 
   if (stats.latest)
