@@ -34,11 +34,11 @@ async function ingestDoc(doc: DocRef): Promise<{ changed: boolean; items: number
       return { changed: true, items: 0 };
     }
     await sql`
-      insert into documents (id, body_id, meeting_date, url, sha256, title, is_amended, is_cancelled, page_count, text_unavailable)
-      values (${doc.id}, ${doc.bodyId}, ${doc.meetingDate}, ${doc.url}, ${sha256}, ${doc.title}, ${doc.isAmended}, ${doc.isCancelled}, ${pageCount}, true)
+      insert into documents (id, body_id, meeting_date, url, sha256, title, is_amended, is_cancelled, page_count, text_unavailable, role)
+      values (${doc.id}, ${doc.bodyId}, ${doc.meetingDate}, ${doc.url}, ${sha256}, ${doc.title}, ${doc.isAmended}, ${doc.isCancelled}, ${pageCount}, true, ${doc.role})
       on conflict (id) do update set sha256 = excluded.sha256, text_unavailable = true,
         title = excluded.title, is_cancelled = excluded.is_cancelled,
-        page_count = excluded.page_count, fetched_at = now()`;
+        page_count = excluded.page_count, role = excluded.role, fetched_at = now()`;
     console.log(`  ${doc.id} text_unavailable (${charsPerPage} chars/page) — stored, skipped`);
     return { changed: true, items: 0 };
   }
@@ -68,11 +68,12 @@ async function ingestDoc(doc: DocRef): Promise<{ changed: boolean; items: number
 
   await sql.begin(async (tx) => {
     await tx`
-      insert into documents (id, body_id, meeting_date, url, sha256, title, is_amended, is_cancelled, page_count, text_unavailable)
-      values (${doc.id}, ${doc.bodyId}, ${doc.meetingDate}, ${doc.url}, ${sha256}, ${doc.title}, ${doc.isAmended}, ${doc.isCancelled}, ${pageCount}, false)
+      insert into documents (id, body_id, meeting_date, url, sha256, title, is_amended, is_cancelled, page_count, text_unavailable, role)
+      values (${doc.id}, ${doc.bodyId}, ${doc.meetingDate}, ${doc.url}, ${sha256}, ${doc.title}, ${doc.isAmended}, ${doc.isCancelled}, ${pageCount}, false, ${doc.role})
       on conflict (id) do update set sha256 = excluded.sha256, page_count = excluded.page_count,
         title = excluded.title, is_amended = excluded.is_amended,
-        is_cancelled = excluded.is_cancelled, text_unavailable = false, fetched_at = now()`;
+        is_cancelled = excluded.is_cancelled, text_unavailable = false,
+        role = excluded.role, fetched_at = now()`;
     await tx`delete from items where document_id = ${doc.id}`;
     for (let n = 0; n < rows.length; n++) {
       const r = rows[n];
@@ -117,6 +118,28 @@ async function main() {
       // One bad document must not lose the whole run.
       failures.push(`${doc.id}: ${(err as Error).message}`);
       console.log(`  ${doc.id} FAILED — ${(err as Error).message}`);
+    }
+  }
+
+  // relates_to needs the whole set to be present, so it is a post-pass rather than
+  // per-document: a supplemental packet can be ingested before the agenda it
+  // belongs to. Same statement as db/migrations/001-document-roles.sql. Left null
+  // when a non-primary document has no primary sibling — a real state, not an
+  // error, and it must stay visible.
+  if (!dryRun) {
+    const linked = await sql`
+      update documents d set relates_to = p.id
+        from documents p
+       where p.body_id = d.body_id and p.meeting_date = d.meeting_date
+         and p.role = 'primary' and d.role <> 'primary' and d.id <> p.id
+         and d.relates_to is distinct from p.id`;
+    if (linked.count) console.log(`linked ${linked.count} document(s) to their agenda`);
+
+    const orphans = await sql<{ n: number }[]>`
+      select count(*)::int as n from documents
+       where role <> 'primary' and relates_to is null`;
+    if (orphans[0]?.n) {
+      console.log(`note: ${orphans[0].n} non-primary document(s) have no primary sibling`);
     }
   }
 

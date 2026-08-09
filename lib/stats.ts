@@ -12,12 +12,14 @@ export type Stats = {
   // Documents that parsed cleanly but yielded no numbered items — supplemental
   // packets, roster-style agendas. Kept with their link rather than dropped.
   itemless: number;
-  // Documents whose city-given title is in Spanish — the separately-posted Spanish
-  // edition of a City Council agenda. Detected from the title verbatim, never
-  // inferred from the body text. These are NOT duplicates that got deduped: they
-  // carry their own document id and are currently indexed and ranked as if they
-  // were separate meetings. See the observation in app/panels.tsx.
+  // Counts by documents.role, all read from the city-given title verbatim.
+  // See roleFromTitle() in lib/pdf.ts and db/migrations/001-document-roles.sql.
   spanish: number;
+  supplemental: number;
+  // Non-primary documents with no primary sibling to attach to. A real state, kept
+  // visible rather than papered over — it is what caught three Water Commission
+  // agendas being misclassified as addenda.
+  orphans: number;
   // Latest meeting date we hold, for the "nothing located after" observation.
   // Never phrased as the city failing to post; only as where we looked and when.
   latest: string | null;
@@ -32,6 +34,8 @@ const EMPTY: Stats = {
   amended: 0,
   itemless: 0,
   spanish: 0,
+  supplemental: 0,
+  orphans: 0,
   latest: null,
 };
 
@@ -59,8 +63,10 @@ export async function corpusStats(): Promise<Stats> {
              (select count(*)::int from documents where text_unavailable) as scans,
              (select count(*)::int from documents where is_cancelled)     as cancelled,
              (select count(*)::int from documents where is_amended)       as amended,
+             (select count(*)::int from documents where role = 'spanish')      as spanish,
+             (select count(*)::int from documents where role = 'supplemental') as supplemental,
              (select count(*)::int from documents
-               where title like '%CONCEJO MUNICIPAL%') as spanish,
+               where role <> 'primary' and relates_to is null) as orphans,
              (select count(*)::int from documents d
                where not exists (select 1 from items i where i.document_id = d.id)
                  and not d.text_unavailable) as itemless,
