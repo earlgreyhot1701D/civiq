@@ -12,7 +12,8 @@ export default function MeetingCard({ m, showWhen }: { m: Meeting; showWhen: boo
           {m.body} — {m.meeting_date}
         </h3>
         {when && <span className="when">{when}</span>}
-        {m.is_cancelled && <span className="tag cancelled">Cancelled</span>}
+        {/* `.tag` is the header tagline now; the pill has its own class. */}
+        {m.is_cancelled && <span className="tag-pill">Cancelled</span>}
       </header>
 
       {m.title && <p className="mtitle">{m.title}</p>}

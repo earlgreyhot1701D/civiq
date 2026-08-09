@@ -1,128 +1,293 @@
+/* Visual system ported from the hackathon front end (site/index.html).
+   Deliberate properties carried over, not just the palette:
+     - Every interactive target is at least 44px tall. This gets read on a phone.
+     - System font stack, no webfont. See the note in layout.tsx.
+     - A real print stylesheet: paper is how a resident walks into a meeting.
+     - Focus rings are visible everywhere, and inverted on the dark header. */
+
 :root {
-  --ink: #14181f;
-  --muted: #5b6675;
-  --line: #dfe4ea;
-  --accent: #1a4f8a;
-  --bg: #fbfbf9;
+  --ink: #0e2433;
+  --ink-2: #2d4d60;
+  --ink-3: #4a6576;
+  --ocean: #14657f;
+  --ocean-d: #0e4c60;
+  --ocean-l: #e0edf2;
+  --sand: #faf6f0;
+  --paper: #fff;
+  --line: #7d9099;
+  --line-soft: #c8d4da;
+  --hot: #8a4b1f;
+  --hot-bg: #fdf2e7;
+  --ok: #14503c;
+  --ok-bg: #e8f4ee;
+  --err: #8a1a1a;
 }
+
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
+
 body {
-  background: var(--bg);
+  background: var(--sand);
   color: var(--ink);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
-  line-height: 1.55;
-}
-main { max-width: 44rem; margin: 0 auto; padding: 3rem 1.25rem 4rem; }
-h1 { font-size: 1.9rem; margin: 0 0 .25rem; letter-spacing: -.02em; }
-.sub { color: var(--muted); margin: 0 0 2rem; }
-
-.ask { display: flex; gap: .5rem; margin-bottom: 1.5rem; }
-.ask input {
-  flex: 1; padding: .7rem .85rem; font: inherit;
-  border: 1px solid var(--line); border-radius: 8px; background: #fff;
-}
-.ask input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
-button {
-  padding: .7rem 1rem; font: inherit; font-weight: 550; cursor: pointer;
-  border: 1px solid var(--accent); border-radius: 8px;
-  background: var(--accent); color: #fff;
-}
-button:disabled { opacity: .5; cursor: not-allowed; }
-
-.answer {
-  background: #fff; border: 1px solid var(--line); border-left: 3px solid var(--accent);
-  border-radius: 8px; padding: .9rem 1rem; margin-bottom: 1.5rem; white-space: pre-wrap;
-}
-.err { color: #8a1a1a; }
-.none { color: var(--muted); font-style: italic; }
-
-.hit {
-  background: #fff; border: 1px solid var(--line);
-  border-radius: 8px; padding: .9rem 1rem; margin-bottom: .75rem;
-}
-.hit h3 { margin: 0 0 .35rem; font-size: .95rem; color: var(--accent); }
-.hit p { margin: 0 0 .5rem; }
-.receipt {
-  font-size: .82rem; color: var(--muted);
-  border-top: 1px dashed var(--line); padding-top: .5rem; margin: 0 !important;
-}
-a { color: var(--accent); }
-
-.email {
-  margin-top: 1.5rem; padding: 1rem;
-  border: 1px solid var(--line); border-radius: 8px; background: #fff;
-}
-.email label { font-weight: 600; display: block; margin-bottom: .5rem; }
-.email .row { display: flex; gap: .5rem; }
-.email input {
-  flex: 1; padding: .6rem .75rem; font: inherit;
-  border: 1px solid var(--line); border-radius: 8px;
-}
-.note { font-size: .8rem; color: var(--muted); margin: .5rem 0 0; }
-
-footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--line); }
-footer p { font-size: .85rem; color: var(--muted); }
-footer ul { font-size: .8rem; color: var(--muted); padding-left: 1.1rem; margin: .5rem 0 0; }
-footer li { margin-bottom: .2rem; }
-
-.caveat {
-  margin-top: 0.5rem;
-  font-size: 0.85rem;
-  line-height: 1.5;
-  opacity: 0.75;
+  font: 17px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-.masthead {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
+.wrap { max-width: 760px; margin: 0 auto; padding: 0 20px; }
+
+:focus-visible { outline: 3px solid var(--ocean); outline-offset: 2px; border-radius: 4px; }
+header :focus-visible { outline-color: #8ed3ea; }
+
+.srlabel {
+  position: absolute; width: 1px; height: 1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
 }
-.masthead h1 { margin: 0; }
-.builders {
-  margin: 0;
-  font-size: 0.8rem;
-  line-height: 1.4;
-  opacity: 0.7;
-  text-align: right;
+
+/* ---- header ---- */
+header { background: var(--ocean-d); color: #fff; padding: 20px 0 30px; }
+.toprow {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 14px; flex-wrap: wrap;
 }
+.brand h1 { margin: 0; font-size: 26px; letter-spacing: -.02em; font-weight: 700; }
+.brand .city {
+  display: block; margin-top: 2px; font-size: 13px; color: #a9d2e0;
+  letter-spacing: .09em; text-transform: uppercase; font-weight: 600;
+}
+.builders { margin: 0; font-size: 13px; line-height: 1.4; color: #a9d2e0; text-align: right; }
 .builders span { white-space: nowrap; }
-@media (max-width: 520px) {
-  .builders { text-align: left; }
+.tag { margin: 18px 0 0; color: #dcf0f6; font-size: 18px; max-width: 46ch; line-height: 1.5; }
+.readat {
+  margin-top: 14px; font-size: 13.5px; color: #a9d2e0;
+  display: flex; align-items: center; gap: 7px;
+}
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #6fd39f; flex: none; }
+
+/* ---- search bar, lifted to straddle the header edge ---- */
+.searchwrap { max-width: 760px; margin: 0 auto; padding: 0 20px; }
+.searchbar {
+  background: var(--paper); border: 2px solid var(--line); border-radius: 14px;
+  padding: 7px; display: flex; gap: 7px;
+  box-shadow: 0 6px 20px rgba(14, 36, 51, .1);
+  margin-top: -24px; position: relative; z-index: 2;
+}
+.searchbar input {
+  flex: 1; min-width: 0; border: 0; outline: 0; background: transparent;
+  font: inherit; font-size: 17px; padding: 13px; color: var(--ink);
+}
+.searchbar input::placeholder { color: #566f7d; }
+.searchbar button {
+  border: 0; background: var(--ocean); color: #fff; font: inherit;
+  font-size: 16px; font-weight: 600; min-height: 48px; padding: 0 24px;
+  border-radius: 9px; cursor: pointer; white-space: nowrap;
+}
+.searchbar button:hover { background: var(--ocean-d); }
+.searchbar button:disabled { opacity: .5; cursor: not-allowed; }
+
+main { padding: 24px 0 60px; }
+
+/* ---- topic picker ---- */
+.picker h2 { margin: 6px 0 16px; font-size: 22px; letter-spacing: -.01em; }
+.topics { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 11px; }
+.topic {
+  background: var(--paper); border: 2px solid var(--line-soft); border-radius: 12px;
+  min-height: 64px; padding: 16px 18px; font: inherit; font-size: 17px;
+  font-weight: 600; color: var(--ink); cursor: pointer; text-align: left; line-height: 1.3;
+}
+.topic:hover { border-color: var(--ocean); color: var(--ocean-d); background: var(--ocean-l); }
+
+.count { font-size: 15px; color: var(--ink-2); margin: 6px 0 14px; min-height: 1px; }
+.count .note { color: var(--ink-3); }
+.back {
+  background: none; border: 0; color: var(--ocean-d); font: inherit; font-size: 15.5px;
+  cursor: pointer; padding: 10px 0; min-height: 44px; text-decoration: underline;
+  margin-bottom: 4px;
 }
 
+/* ---- result card ---- */
+.item {
+  background: var(--paper); border: 1px solid var(--line-soft); border-radius: 12px;
+  padding: 17px 19px; margin-bottom: 12px;
+}
+.item .status {
+  font-size: 13.5px; font-weight: 700; color: var(--ink-2); margin-bottom: 8px;
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+}
+.item .status .badge {
+  background: #eef2f4; color: var(--ink-2); padding: 4px 10px;
+  border-radius: 6px; font-size: 13px;
+}
+.item .status .badge.hot { background: var(--hot-bg); color: var(--hot); }
+.item .when { color: var(--ink-3); font-weight: 500; }
+.item h3 {
+  margin: 0 0 12px; font-size: 19px; line-height: 1.45;
+  font-weight: 600; letter-spacing: -.01em;
+}
+
+.receipt {
+  font-size: 13.5px; color: var(--ink-3); margin: 0;
+  border-top: 1px dashed var(--line-soft); padding-top: 9px;
+}
+a { color: var(--ocean-d); }
+
+/* The source-PDF link is the most important control on a card — guardrail #4 is
+   that every result carries a receipt, and this is the receipt. Inline links in a
+   sentence are exempt from the 44px rule, but measured on a 375px viewport these
+   were 18px boxes, under the 24px AA minimum. Pad the box rather than promote it
+   to a button. Left as inline for footer links, where mid-URL wrapping matters. */
+.receipt a, .panelbox dd a { display: inline-block; padding: 4px 0; }
+
+.disc { display: flex; gap: 9px; margin-top: 11px; flex-wrap: wrap; }
+.disc button {
+  background: none; border: 1px solid var(--line-soft); color: var(--ink-2);
+  border-radius: 8px; padding: 0 14px; min-height: 44px; font: inherit;
+  font-size: 14.5px; cursor: pointer;
+}
+.disc button:hover { border-color: var(--ocean); color: var(--ocean-d); }
+
+/* ---- proof panel ---- */
+.panelbox {
+  margin-top: 12px; padding: 15px 16px; background: #f7fafb;
+  border: 1px solid var(--line-soft); border-radius: 9px; font-size: 15px;
+}
+.panelbox .h { font-weight: 700; margin-bottom: 9px; font-size: 15px; }
+.panelbox dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; }
+.panelbox dt { color: var(--ink-3); font-size: 14.5px; }
+.panelbox dd { margin: 0; font-size: 14.5px; }
+.panelbox a { word-break: break-word; }
+.panelbox .quote {
+  font-style: italic; color: var(--ink-2); line-height: 1.5;
+  margin: 0 0 12px; white-space: pre-wrap;
+}
+.panelbox .quote .clip { font-style: normal; color: var(--ink-3); font-size: 13.5px; }
+.panelbox .none { color: var(--ink-3); font-style: italic; margin: 0 0 12px; }
+.panelbox .verbatim {
+  margin: 12px 0 0; font-size: 13.5px; color: var(--ink-3); line-height: 1.5;
+}
+
+/* ---- model answer, empty state, errors ---- */
+.answer {
+  background: var(--paper); border: 1px solid var(--line-soft);
+  border-left: 4px solid var(--ocean); border-radius: 9px;
+  padding: 15px 17px; margin-bottom: 15px; white-space: pre-wrap;
+}
+.err { color: var(--err); }
+.empty {
+  background: var(--paper); border: 1px solid var(--line-soft);
+  border-radius: 12px; padding: 26px 22px;
+}
+.empty strong { display: block; font-size: 18px; margin-bottom: 9px; }
+.empty p { font-size: 15px; color: var(--ink-2); margin: 0 0 9px; }
+.empty .note { font-size: 14px; color: var(--ink-3); }
+
+/* ---- feed ---- */
 section h2 {
-  margin: 2rem 0 0.75rem;
-  font-size: 1rem;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  opacity: 0.65;
+  margin: 26px 0 12px; font-size: 13px; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--ink-3);
 }
 .meeting {
-  border-top: 1px solid currentColor;
-  border-color: color-mix(in srgb, currentColor 15%, transparent);
-  padding: 1rem 0;
+  background: var(--paper); border: 1px solid var(--line-soft);
+  border-radius: 12px; padding: 16px 18px; margin-bottom: 12px;
 }
 .meeting header {
-  display: flex;
-  align-items: baseline;
-  gap: 0.6rem;
-  flex-wrap: wrap;
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  background: none; color: inherit; padding: 0;
 }
-.meeting header h3 { margin: 0; font-size: 1.02rem; }
-.when { font-size: 0.8rem; opacity: 0.7; }
-.tag {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  border: 1px solid currentColor;
-  border-radius: 999px;
-  padding: 0.05rem 0.5rem;
-  opacity: 0.75;
+.meeting header h3 { margin: 0; font-size: 17px; color: var(--ocean-d); }
+.when { font-size: 13.5px; color: var(--ink-3); }
+.tag-pill {
+  font-size: 12px; text-transform: uppercase; letter-spacing: .04em;
+  border-radius: 999px; padding: 2px 9px;
+  background: var(--hot-bg); color: var(--hot); font-weight: 600;
 }
-.mtitle { margin: 0.3rem 0 0; font-size: 0.9rem; opacity: 0.8; }
-.items { margin: 0.6rem 0 0; padding-left: 1.1rem; }
-.items li { margin-bottom: 0.7rem; }
-.items li p { margin: 0 0 0.2rem; }
+.mtitle { margin: 6px 0 0; font-size: 14.5px; color: var(--ink-2); }
+.items { margin: 12px 0 12px; padding-left: 20px; }
+.items li { margin-bottom: 12px; font-size: 15.5px; }
+.items li p { margin: 0 0 4px; }
+.caveat { font-size: 14px; color: var(--ink-3); line-height: 1.5; margin: 8px 0 0; }
+
+/* ---- explanatory panels ---- */
+section.panel {
+  background: var(--paper); border: 1px solid var(--line-soft);
+  border-radius: 12px; padding: 21px 22px; margin-top: 15px;
+}
+section.panel h2 {
+  margin: 0 0 5px; font-size: 18px; text-transform: none;
+  letter-spacing: normal; color: var(--ink);
+}
+section.panel p.sub { margin: 0 0 15px; font-size: 14.5px; color: var(--ink-3); }
+.obs { border-top: 1px solid var(--line-soft); padding-top: 13px; margin-top: 13px; }
+.obs:first-of-type { border-top: 0; padding-top: 0; margin-top: 0; }
+.obs .kind {
+  display: inline-block; margin-bottom: 7px; font-size: 12px; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase; color: var(--hot);
+  background: var(--hot-bg); padding: 3px 9px; border-radius: 5px;
+}
+.obs .txt { font-size: 15px; margin: 0 0 5px; }
+.obs .why { font-size: 14px; color: var(--ink-3); margin: 0; }
+.rules { padding-left: 20px; margin: 0; }
+.rules li { margin-bottom: 11px; font-size: 15.5px; }
+.rules b { color: var(--ocean-d); }
+.flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 9px; }
+.flow .n {
+  background: var(--sand); border: 1px solid var(--line-soft);
+  border-radius: 9px; padding: 13px;
+}
+.flow .n .s { font-size: 11.5px; font-weight: 700; color: var(--ocean-d); letter-spacing: .06em; }
+.flow .n .t { font-size: 14px; margin-top: 4px; color: var(--ink-2); }
+
+.toolbar { margin-top: 16px; }
+button.ghost {
+  background: var(--paper); border: 1px solid var(--line); color: var(--ink-2);
+  padding: 0 18px; min-height: 48px; border-radius: 9px; font: inherit;
+  font-size: 15.5px; cursor: pointer;
+}
+button.ghost:hover { border-color: var(--ocean); color: var(--ocean-d); }
+
+/* ---- follow / email ---- */
+.email {
+  margin-top: 15px; padding: 17px 19px; background: var(--ok-bg);
+  border: 1px solid #a8cfbe; border-radius: 12px;
+}
+.email label {
+  display: block; margin-bottom: 9px; font-weight: 700;
+  color: var(--ok); font-size: 15.5px;
+}
+.email .row { display: flex; gap: 8px; flex-wrap: wrap; }
+.email input {
+  flex: 1; min-width: 12rem; padding: 13px; font: inherit;
+  border: 1px solid var(--line-soft); border-radius: 9px; background: var(--paper);
+}
+.email button {
+  border: 0; background: var(--ok); color: #fff; font: inherit; font-weight: 600;
+  min-height: 48px; padding: 0 20px; border-radius: 9px; cursor: pointer;
+}
+.email button:disabled { opacity: .5; cursor: not-allowed; }
+.note { font-size: 13.5px; color: var(--ink-3); margin: 9px 0 0; }
+
+/* ---- footer ---- */
+footer {
+  border-top: 1px solid var(--line-soft); padding: 24px 0 44px;
+  font-size: 14px; color: var(--ink-3);
+}
+footer p { margin: 0 0 9px; }
+
+/* ---- paper ---- */
+@media print {
+  header { background: #fff; color: #000; border-bottom: 2px solid #000; padding-bottom: 12px; }
+  .brand h1, .brand .city, .tag, .readat, .builders { color: #000; }
+  .searchwrap, .toolbar, .disc, .picker, .back, .email, .noprint, .dot { display: none; }
+  body { background: #fff; }
+  .item, .meeting { break-inside: avoid; border: 1px solid #999; }
+  .panelbox { display: block !important; }
+  a::after { content: " (" attr(href) ")"; font-size: 11px; color: #555; word-break: break-all; }
+}
+
+@media (max-width: 600px) {
+  .searchbar { flex-direction: column; }
+  .searchbar button { width: 100%; }
+  .panelbox dl { grid-template-columns: 1fr; gap: 2px 0; }
+  .panelbox dt { margin-top: 7px; }
+  .builders { text-align: left; }
+}
