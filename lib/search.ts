@@ -12,6 +12,7 @@ export type Hit = {
   id: number;
   item_number: string;
   plain_text: string;
+  raw_text: string; // the city's own words, for the proof panel. Never rewritten.
   page_start: number;
   page_end: number;
   meeting_date: string;
@@ -58,7 +59,7 @@ export const weightsFor = (q: string) =>
 // HANDOFF §5 numbers these $1,$2,$4,$5; Postgres rejects a parameter that is never
 // referenced, so they are $1..$4 here. Same query, same weights.
 const TAIL = `
-select i.id, i.item_number, i.plain_text, i.page_start, i.page_end,
+select i.id, i.item_number, i.plain_text, i.raw_text, i.page_start, i.page_end,
        d.meeting_date, d.url, b.name as body,
        coalesce($DW::float/(${K}+dn.rank), 0) + coalesce($LW::float/(${K}+lx.rank), 0) as score
 from items i

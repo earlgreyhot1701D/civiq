@@ -34,10 +34,10 @@ export default function EmailForm({ query, hasHits }: { query: string; hasHits: 
   return (
     <form className="email" onSubmit={submit}>
       <label htmlFor="em">
-          {hasHits
-            ? 'Email me about this'
-            : 'Follow this — we will email you if it appears on any agenda'}
-        </label>
+        {hasHits
+          ? 'Email me about this'
+          : 'Follow this — we will email you if it appears on any agenda'}
+      </label>
       <div className="row">
         <input
           id="em"

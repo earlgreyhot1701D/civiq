@@ -1,10 +1,15 @@
-// Server shell: the footer timestamp is read from the runs table, never hardcoded.
-// The page leads with the feed — real content on load, no typing required. Search
-// demotes to a filter above it.
+// Server shell: the header timestamp is read from the runs table, never hardcoded.
+//
+// The feed and the explanatory panels are rendered here (server) and passed into
+// AgendaSearch (client) as slots, so the client owns only the decision about when
+// to show them. That keeps the database queries on the server while still letting
+// a search replace the feed.
 import AgendaSearch from './agenda-search';
 import MeetingCard from './meeting-card';
+import Panels from './panels';
 import { getFeed } from '@/lib/feed';
 import { corpusStats, lastIngestedAt } from '@/lib/stats';
+import { TOPICS } from '@/lib/topics';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,22 +20,12 @@ export default async function Page() {
     getFeed(),
   ]);
 
-  return (
-    <main>
-      <div className="masthead">
-        <h1>Civiq</h1>
-        <p className="builders">
-          Built by <span>Jesus</span>, <span>Alissa</span>, <span>Frances</span> and{' '}
-          <span>La Shara</span>
-        </p>
-      </div>
-      <p className="sub">
-        {stats.bodies || 21} Ventura boards and commissions. Ask in plain language; every
-        answer carries a receipt.
-      </p>
+  const readAt = last
+    ? new Date(last).toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })
+    : null;
 
-      <AgendaSearch bodies={stats.bodies} checkedAt={last} />
-
+  const feedSlot = (
+    <>
       {feed.upcoming.length > 0 && (
         <section>
           <h2>Coming up</h2>
@@ -49,44 +44,76 @@ export default async function Page() {
           ))}
         </section>
       )}
+    </>
+  );
+
+  return (
+    <>
+      <header>
+        <div className="wrap">
+          <div className="toprow">
+            <div className="brand">
+              <h1>Civiq</h1>
+              <span className="city">Ventura, California</span>
+            </div>
+            <p className="builders">
+              Built by <span>Jesus</span>, <span>Alissa</span>, <span>Frances</span> and{' '}
+              <span>La Shara</span>
+            </p>
+          </div>
+          <p className="tag">
+            Your city decides things in public, in documents almost nobody reads. Ask your
+            question the way you would actually say it.
+          </p>
+          <div className="readat">
+            <span className="dot" aria-hidden="true" />
+            <span>
+              {readAt ? (
+                <>
+                  We last read all {stats.bodies || 21} boards and commissions on{' '}
+                  <time dateTime={last ?? undefined}>{readAt}</time>
+                </>
+              ) : (
+                <>No ingest run has completed yet, so nothing has been read into this database.</>
+              )}
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <AgendaSearch
+        bodies={stats.bodies}
+        checkedAt={last}
+        // Only id and label cross to the client; the term lists stay on the server.
+        topics={TOPICS.map(({ id, label }) => ({ id, label }))}
+        feed={feedSlot}
+        panels={<Panels stats={stats} checkedAt={last} />}
+      />
 
       <footer>
-        <p>
-          {last ? (
-            <>
-              Last read at{' '}
-              <time dateTime={last}>
-                {new Date(last).toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })}
-              </time>{' '}
-              — {stats.documents} agendas, {stats.items} items.
-            </>
-          ) : (
-            <>No ingest run has completed yet, so nothing has been read into this database.</>
-          )}
-        </p>
-
-        {/* What could not be read is stated plainly. Never "missing", never "late". */}
-        {stats.scans > 0 && (
-          <p className="caveat">
-            Text could not be read from {stats.scans} of these {stats.documents} agendas.
-            They appear to be scans. The originals are linked and nothing in them has been
-            guessed at.
+        <div className="wrap">
+          <p>
+            <b>Civiq</b> is an independent community project. It does not work for the City
+            of Ventura and does not speak for it.
           </p>
-        )}
-        {stats.cancelled > 0 && (
-          <p className="caveat">
-            {stats.cancelled} posted a notice of cancellation. They are kept as published
-            rather than dropped, because a cancelled meeting is itself a thing a resident
-            may be looking for.
+          <p>
+            Everything here comes from public records at{' '}
+            <a
+              href="https://www.cityofventura.ca.gov/AgendaCenter"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              cityofventura.ca.gov/AgendaCenter
+            </a>
+            . What the city posts is always the official version. If we disagree with the
+            city, the city is right.
           </p>
-        )}
-        <ul>
-          <li>Meeting dates, item numbers and page ranges are copied from the source — never written by a model.</li>
-          <li>No scores, grades or rankings about any agency.</li>
-          <li>Nothing is ever sent to a government office.</li>
-          <li>Every result links to the original PDF.</li>
-        </ul>
+          <p>
+            {stats.documents} agendas, {stats.items} items, across {stats.bodies} boards and
+            commissions.
+          </p>
+        </div>
       </footer>
-    </main>
+    </>
   );
 }
