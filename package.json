@@ -1,7 +1,11 @@
 {
   "name": "civiq",
   "version": "0.1.0",
+  "description": "Plain-language search over Ventura city agendas",
   "private": true,
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
